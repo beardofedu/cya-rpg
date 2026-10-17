@@ -135,6 +135,7 @@
         state.equipment[select.dataset.slot] = select.value;
         save();
         render();
+        $('sheet-body').querySelector(`.equip-select[data-slot="${select.dataset.slot}"]`).focus();
         toast(`Equipped ${select.value}.`);
       });
     });
