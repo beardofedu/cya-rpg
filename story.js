@@ -8,7 +8,7 @@ const CLASSES = {
     stats: { STR: 17, DEX: 12, INT: 8, WIS: 12 },
     hp: 32, attackStat: 'STR', damage: [5, 9], weapon: 'Longsword',
     ability: { name: 'Second Wind', desc: 'Once per adventure, recover 12 Endurance.', combatOnly: false },
-    items: ['Longsword', 'Chain Mail'],
+    armor: 'Chain Mail', items: ['Longsword', 'Chain Mail'],
   },
   rogue: {
     name: 'Rogue', icon: '🗡️',
@@ -16,15 +16,15 @@ const CLASSES = {
     stats: { STR: 10, DEX: 17, INT: 13, WIS: 10 },
     hp: 24, attackStat: 'DEX', damage: [4, 8], weapon: 'Twin Daggers',
     ability: { name: 'Shadowstrike', desc: 'Once per adventure in combat, strike unseen for double damage — no roll needed.', combatOnly: true },
-    items: ['Twin Daggers', 'Lockpicks'],
+    armor: 'Leather Armor', items: ['Twin Daggers', 'Leather Armor', 'Lockpicks'],
   },
   mage: {
     name: 'Mage', icon: '🔮',
     blurb: 'A scholar of the arcane whose words can kindle fire from empty air.',
     stats: { STR: 8, DEX: 12, INT: 17, WIS: 13 },
-    hp: 20, attackStat: 'INT', damage: [4, 8], weapon: 'Arcane Bolt',
+    hp: 20, attackStat: 'INT', damage: [4, 8], weapon: 'Oak Staff',
     ability: { name: 'Fireball', desc: 'Once per adventure in combat, deal 14 fire damage — no roll needed.', combatOnly: true },
-    items: ['Oak Staff', 'Spellbook'],
+    armor: 'Mage Robes', items: ['Oak Staff', 'Mage Robes', 'Spellbook'],
   },
   cleric: {
     name: 'Cleric', icon: '✨',
@@ -32,8 +32,26 @@ const CLASSES = {
     stats: { STR: 13, DEX: 10, INT: 11, WIS: 17 },
     hp: 26, attackStat: 'WIS', damage: [4, 8], weapon: 'Mace of Dawn',
     ability: { name: 'Divine Mending', desc: 'Once per adventure, recover 15 Endurance.', combatOnly: false },
-    items: ['Mace of Dawn', 'Holy Symbol'],
+    armor: 'Scale Mail', items: ['Mace of Dawn', 'Scale Mail', 'Holy Symbol'],
   },
+};
+
+const EQUIPMENT = {
+  'Longsword': { slot: 'weapon', damage: [5, 9] },
+  'Twin Daggers': { slot: 'weapon', damage: [4, 8] },
+  'Oak Staff': { slot: 'weapon', damage: [4, 8] },
+  'Mace of Dawn': { slot: 'weapon', damage: [4, 8] },
+  'Huntsman\'s Bow': { slot: 'weapon', damage: [5, 9] },
+  'Dawnforged Blade': { slot: 'weapon', damage: [6, 10] },
+  'Whispersteel Daggers': { slot: 'weapon', damage: [5, 9] },
+  'Starfall Staff': { slot: 'weapon', damage: [5, 9] },
+  'Sunfire Mace': { slot: 'weapon', damage: [5, 9] },
+  'Chain Mail': { slot: 'armor', defense: 2 },
+  'Leather Armor': { slot: 'armor', defense: 1 },
+  'Mage Robes': { slot: 'armor', defense: 0 },
+  'Scale Mail': { slot: 'armor', defense: 1 },
+  'Warden\'s Mail': { slot: 'armor', defense: 2 },
+  'Tideglass Armor': { slot: 'armor', defense: 3 },
 };
 
 const STAT_NAMES = { STR: 'Strength', DEX: 'Dexterity', INT: 'Intellect', WIS: 'Wisdom' };
@@ -100,9 +118,34 @@ const STORY = {
       a shorter road, if the stories of what lives inside are untrue.</p>
       ${s.cls === 'rogue' ? '<p><em>Your trained eye notices fresh boot-prints heading into the mine. Small boots. Goblins.</em></p>' : ''}`,
     choices: [
+      { text: 'Search the ruined watchtower.', to: 'watchtower-check', show: (s) => !s.flags.watchtower },
       { text: 'Head east to the river ford.', to: 7 },
       { text: 'Enter the abandoned mine.', to: 10 },
     ],
+  },
+  'watchtower-check': {
+    number: 6, title: 'The Old Watchtower',
+    text: `<p>The tower leans over the road, its upper floors collapsed. You climb through a breach in the
+      stone and search the debris for anything the old guards left behind.</p>`,
+    check: { stat: 'DEX', dc: 12, text: 'Make a Dexterity check to search the unstable tower.', success: 'watchtower-cache', failure: 'watchtower-fall' },
+  },
+  'watchtower-cache': {
+    number: 6, title: 'The Watch Captain\'s Cache',
+    text: `<p>Behind a fallen beam, you find a serviceable bow and a suit of mail sealed in an oilskin.
+      The watch captain's old equipment may serve you well.</p>`,
+    onEnter: (s) => {
+      s.flags.watchtower = true;
+      s.items.push('Huntsman\'s Bow', 'Warden\'s Mail');
+      return 'Found a Huntsman\'s Bow and Warden\'s Mail. Equip them from your Adventure Sheet.';
+    },
+    choices: [{ text: 'Return to the fork in the road.', to: 6 }],
+  },
+  'watchtower-fall': {
+    number: 6, title: 'A Crumbling Tower',
+    text: `<p>The floor gives way beneath you. You tumble through a rotten beam and land hard in the
+      weeds below. The tower has nothing left to offer.</p>`,
+    onEnter: (s) => { s.flags.watchtower = true; s.hp -= 3; return 'Lost 3 Endurance.'; },
+    choices: [{ text: 'Return to the fork in the road.', to: 6 }],
   },
   7: {
     title: 'The Greywater',
@@ -364,6 +407,7 @@ const STORY = {
   25: {
     title: 'Dawn Returns',
     ending: 'victory',
+    storyId: 'lantern', nextStory: 's2-1',
     text: (s) => `
       <p>The blue fire shudders, fights you — and breaks. Gold floods back into the Lantern so brightly
       that the whole ruined monastery is lit as if by noon. Across the mountainside, the restless dead
@@ -375,6 +419,7 @@ const STORY = {
   26: {
     title: 'A Dimmer Light',
     ending: 'victory',
+    storyId: 'lantern', nextStory: 's2-1',
     text: (s) => `
       <p>You pour your will into the flame until you can barely stand. The blue fades — but the gold
       that returns is pale and thin, like winter sunlight.</p>
@@ -382,6 +427,102 @@ const STORY = {
       face is grave when she takes the Lantern from you. "It will need tending," she says. "The Hollow King
       has tasted its light. He will be back."</p>
       <p>Perhaps, ${s.name}, so will you.</p>`,
+  },
+  's2-1': {
+    title: 'The Ashen Tide',
+    text: (s) => `
+      <p>Three weeks after the Lantern's return, a rider arrives from the southern coast. Grey water is
+      flooding the fishing village of Dunmere, and the dead are walking out of the tide.</p>
+      <p>The rider recognizes you, ${s.name}, and begs you to find the source before the next high tide.</p>`,
+    onEnter: (s) => {
+      s.hp = s.maxHp;
+      s.abilityUsed = false;
+      return 'You have rested and recovered. Your class ability is ready.';
+    },
+    choices: [
+      { text: 'Seek the Dawnmother\'s blessing before leaving.', to: 's2-shrine' },
+      { text: 'Ride south at once.', to: 's2-cross' },
+    ],
+  },
+  's2-shrine': {
+    title: 'A Prayer for Dunmere',
+    text: `<p>At the village shrine, you ask the Dawnmother to guide you through the drowned marsh.</p>`,
+    check: { stat: 'WIS', dc: 12, text: 'Make a Wisdom check to receive the shrine\'s blessing.', success: 's2-blessing', failure: 's2-cross' },
+  },
+  's2-blessing': {
+    title: 'Light in the Mist',
+    text: `<p>A warm glow settles over you. The marsh may be dark, but you will not face it alone.</p>`,
+    onEnter: (s) => { s.flags.tideBlessing = true; return 'The shrine will aid you against the tide.'; },
+    choices: [{ text: 'Ride south to Dunmere.', to: 's2-cross' }],
+  },
+  's2-cross': {
+    title: 'The Drowned Road',
+    text: `<p>The causeway has vanished beneath the flood. You pick your way between half-submerged stones
+      as cold hands reach up from the black water.</p>`,
+    check: { stat: 'DEX', dc: 12, text: 'Make a Dexterity check to cross the flooded causeway.', success: 's2-watch', failure: 's2-drowned-fight' },
+  },
+  's2-drowned-fight': {
+    title: 'Hands Below',
+    text: `<p>The dead drag themselves from the water and block the causeway. You have no choice but to fight.</p>`,
+    combat: { name: 'Drowned Dead', hp: 17, dc: 12, damage: [3, 6], win: 's2-watch' },
+  },
+  's2-watch': {
+    title: 'The Sunken Beacon',
+    text: `<p>Dunmere's lighthouse stands on a rock above the tide. Its lamp is dark, and a trail of black
+      seawater leads from its cellar toward the keeper's hall.</p>`,
+    choices: [
+      { text: 'Search the keeper\'s storehouse.', to: 's2-cache', show: (s) => !s.flags.tideCache },
+      { text: 'Enter the keeper\'s hall.', to: 's2-keeper' },
+    ],
+  },
+  's2-cache': {
+    title: 'The Keeper\'s Stores',
+    text: `<p>You find a locked chest of old lighthouse gear. Inside is a suit of tide-resistant armor and
+      a weapon suited to your training.</p>`,
+    onEnter: (s) => {
+      const weapon = {
+        warrior: 'Dawnforged Blade',
+        rogue: 'Whispersteel Daggers',
+        mage: 'Starfall Staff',
+        cleric: 'Sunfire Mace',
+      }[s.cls];
+      s.flags.tideCache = true;
+      s.items.push(weapon, 'Tideglass Armor');
+      return `Found ${weapon} and Tideglass Armor. Equip them from your Adventure Sheet.`;
+    },
+    choices: [{ text: 'Enter the keeper\'s hall.', to: 's2-keeper' }],
+  },
+  's2-keeper': {
+    title: 'The Drowned Keeper',
+    text: `<p>The keeper's hall is flooded to the waist. A figure in a barnacle-crusted coat rises from the
+      water, clutching a rusted anchor chain. Its lantern burns with a black flame.</p>`,
+    combat: { name: 'Drowned Keeper', hp: 23, dc: 13, damage: [4, 7], win: 's2-heart' },
+  },
+  's2-heart': {
+    title: 'Beneath the Beacon',
+    text: (s) => `
+      <p>Behind the keeper's desk, a stair descends below the waves to a chamber where the sea itself
+      seems to breathe. A black pearl pulses at its center, drawing the dead toward Dunmere.</p>
+      ${s.flags.tideBlessing || has(s, 'Ward of Ash') ? '<p><em>Your protective charm glows against the cold.</em></p>' : ''}`,
+    check: {
+      stat: 'WIS', dc: 14, text: 'Make a Wisdom check to cleanse the black pearl.',
+      bonus: (s) => (s.flags.tideBlessing || has(s, 'Ward of Ash') ? 2 : 0),
+      bonusLabel: 'Protective charm', success: 's2-dawn', failure: 's2-dim',
+    },
+  },
+  's2-dawn': {
+    title: 'The Tide Turns',
+    ending: 'victory', storyId: 'ashen-tide',
+    text: (s) => `
+      <p>Light pours through the black pearl, and it cracks with a sound like distant thunder. The dead
+      collapse into harmless foam. By morning the sea has withdrawn from Dunmere's streets.</p>
+      <p>The villagers hail ${s.name} as the one who turned back the ashen tide.</p>`,
+  },
+  's2-dim': {
+    title: 'A Quiet Sea',
+    ending: 'victory', storyId: 'ashen-tide',
+    text: `<p>You break the pearl, though its darkness leaves a mark upon the chamber. The dead sink beneath
+      the waves and Dunmere is saved — for now. The villagers will remember the cost of that victory.</p>`,
   },
   death: {
     number: '✝', title: 'Your Adventure Ends Here',
