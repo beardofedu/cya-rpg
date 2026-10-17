@@ -37,7 +37,9 @@
     for (const slot of ['weapon', 'armor']) {
       const equipped = s.equipment[slot];
       if (!EQUIPMENT[equipped] || EQUIPMENT[equipped].slot !== slot || !s.items.includes(equipped)) {
-        s.equipment[slot] = slot === 'weapon' ? c.weapon : c.armor;
+        const starter = slot === 'weapon' ? c.weapon : c.armor;
+        if (!s.items.includes(starter)) s.items.push(starter);
+        s.equipment[slot] = starter;
       }
     }
     return s;
