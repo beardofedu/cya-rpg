@@ -5,10 +5,11 @@ A browser-based choose-your-own-adventure fantasy RPG in the spirit of classic 1
 ## Features
 
 - **Four classes** — Warrior, Rogue, Mage, and Cleric — each with STR / DEX / INT / WIS scores, Endurance, a weapon, starting gear, and a once-per-adventure ability.
+- **Leveling and equipment** — earn a level after each completed story, improve your class's primary stat and Endurance, and equip found weapons and armor.
 - **Stat checks** — roll a d20 + your stat modifier against a Difficulty Class. Natural 20 always succeeds; natural 1 always fails.
 - **Animated 3D d20** — every roll tumbles a twenty-sided die across the window and lands on the rolled face.
 - **Combat** — round-by-round d20 attacks using your class's attack stat, plus potions and class abilities.
-- **Branching story** with class-specific paths, items that open new options, multiple endings, and autosave (localStorage).
+- **Two linked stories** with class-specific paths, equipment rewards, items that open new options, multiple endings, and autosave (localStorage).
 
 ## Running locally
 
