@@ -407,7 +407,7 @@ const STORY = {
   25: {
     title: 'Dawn Returns',
     ending: 'victory',
-    storyId: 'lantern', nextStory: 's2-1',
+    storyId: 'lantern', outcome: 'dawn', nextStory: 's2-1',
     text: (s) => `
       <p>The blue fire shudders, fights you — and breaks. Gold floods back into the Lantern so brightly
       that the whole ruined monastery is lit as if by noon. Across the mountainside, the restless dead
@@ -419,7 +419,7 @@ const STORY = {
   26: {
     title: 'A Dimmer Light',
     ending: 'victory',
-    storyId: 'lantern', nextStory: 's2-1',
+    storyId: 'lantern', outcome: 'dim', nextStory: 's2-1',
     text: (s) => `
       <p>You pour your will into the flame until you can barely stand. The blue fades — but the gold
       that returns is pale and thin, like winter sunlight.</p>
@@ -468,6 +468,11 @@ const STORY = {
   },
   's2-watch': {
     title: 'The Sunken Beacon',
+    illustration: {
+      src: 'assets/dunmere-beacon.jpg',
+      alt: 'A storm-battered lighthouse above a flooded village, with a black pearl glowing beneath the waves.',
+      caption: 'The Sunken Beacon, where the ashen tide gathers beneath Dunmere.',
+    },
     text: `<p>Dunmere's lighthouse stands on a rock above the tide. Its lamp is dark, and a trail of black
       seawater leads from its cellar toward the keeper's hall.</p>`,
     choices: [
@@ -512,7 +517,7 @@ const STORY = {
   },
   's2-dawn': {
     title: 'The Tide Turns',
-    ending: 'victory', storyId: 'ashen-tide',
+    ending: 'victory', storyId: 'ashen-tide', outcome: 'cleansed', nextStory: 's3-1',
     text: (s) => `
       <p>Light pours through the black pearl, and it cracks with a sound like distant thunder. The dead
       collapse into harmless foam. By morning the sea has withdrawn from Dunmere's streets.</p>
@@ -520,14 +525,297 @@ const STORY = {
   },
   's2-dim': {
     title: 'A Quiet Sea',
-    ending: 'victory', storyId: 'ashen-tide',
+    ending: 'victory', storyId: 'ashen-tide', outcome: 'scarred', nextStory: 's3-1',
     text: `<p>You break the pearl, though its darkness leaves a mark upon the chamber. The dead sink beneath
       the waves and Dunmere is saved — for now. The villagers will remember the cost of that victory.</p>`,
+  },
+  's3-1': {
+    title: 'The Crown of Hollow Night',
+    text: (s) => `
+      <p>On the first clear morning after Dunmere's rescue, every bell in Thornwick rings without a hand
+      upon its rope. Elder Maren finds you at the well. This time she brings the Lantern itself.</p>
+      <p>"The mountain and the sea were only his fingers," she says. "We must reach the hand." Beyond
+      the northern pass, the buried city of Caer Hollow has risen through the snow. At its heart,
+      the Hollow King is gathering his scattered dead for one last march.</p>
+      ${s.storyOutcomes.lantern === 'dim'
+        ? '<p>The Lantern still burns thin and blue at its edges. Something beneath the distant city answers its flicker.</p>'
+        : s.storyOutcomes.lantern === 'dawn'
+          ? '<p>The Lantern burns with the clear gold you restored at Kaldra. Maren smiles. "Keep that dawn alive."</p>'
+          : '<p>Maren shields the Lantern from the wind. "Whatever happened at Kaldra, its light must reach the city."</p>'}
+      ${s.storyOutcomes['ashen-tide'] === 'cleansed'
+        ? '<p>A sliver of the cleansed pearl hangs from its handle, still holding a spark of the light that saved Dunmere.</p>'
+        : s.storyOutcomes['ashen-tide'] === 'scarred'
+          ? '<p>Salt-black cracks mark the Lantern handle. The wound beneath Dunmere has not entirely closed.</p>'
+          : ''}
+      <p>With provisions from both villages, you cross the pass. A funeral road leads to the city's
+      gates; a broken aqueduct offers another way inside.</p>`,
+    onEnter: (s) => {
+      s.hp = s.maxHp;
+      s.abilityUsed = false;
+      if (s.flags.crownSupplies) return 'You have rested. Your class ability is ready.';
+      s.flags.crownSupplies = true;
+      s.items.push('Healing Potion', 'Healing Potion');
+      return 'Restored all Endurance and your class ability. Gained 2 Healing Potions.';
+    },
+    choices: [
+      { text: 'Follow the funeral road.', to: 's3-road' },
+      { text: 'Climb into the broken aqueduct.', to: 's3-aqueduct' },
+    ],
+  },
+  's3-road': {
+    title: 'The Procession Without Footsteps',
+    text: (s) => `
+      <p>Hundreds of dead citizens walk the funeral road, each carrying an unlit candle. None casts a
+      shadow. You lower the Lantern and search for a rhythm in their silent march.</p>
+      ${s.flags.bell ? '<p>You remember the note of Kaldra: the dead hesitate at the same interval.</p>' : ''}
+      ${has(s, 'Ward of Ash') ? '<p>The Ferrywoman\'s ash-wood charm warms when the nearest shade turns toward you.</p>' : ''}`,
+    check: {
+      stat: 'WIS', dc: 13, text: 'Find a path through the procession without waking its wardens.',
+      bonus: (s) => (s.flags.bell || has(s, 'Ward of Ash') ? 2 : 0),
+      bonusLabel: 'Lessons of Kaldra', success: 's3-gate', failure: 's3-procession-fight',
+    },
+  },
+  's3-procession-fight': {
+    title: 'The Candle Warden',
+    text: `<p>A tall figure turns, its candle flaring blue. The procession parts, leaving you alone with
+      the armored keeper of the road. Behind it, the city gate stands open.</p>`,
+    combat: { name: 'Candle Warden', hp: 18, dc: 12, damage: [3, 6], win: 's3-gate' },
+  },
+  's3-aqueduct': {
+    title: 'Water Above the Graves',
+    text: `<p>The aqueduct runs over the rooftops of a buried district. Its narrow ledge is glazed with
+      ice; below, a channel of black water flows uphill toward the palace.</p>`,
+    choices: [
+      { text: '[Rogue] Follow the maintenance footholds unseen.', to: 's3-gate', show: isClass('rogue') },
+      { text: 'Balance along the icy ledge.', to: 's3-ledge', show: (s) => s.cls !== 'rogue' },
+    ],
+  },
+  's3-ledge': {
+    title: 'A Step Above Darkness',
+    text: `<p>The stone shifts under your boots. You spread your arms, keeping the Lantern well clear
+      of the water reaching toward its flame.</p>`,
+    check: { stat: 'DEX', dc: 12, text: 'Cross the damaged aqueduct.', success: 's3-gate', failure: 's3-fall' },
+  },
+  's3-fall': {
+    title: 'The Hungry Channel',
+    text: `<p>You slip into the channel and scramble out through a drainage grate. Cold fingers tear at
+      your cloak, but the Lantern stays above the water. You emerge beside the palace gate.</p>`,
+    onEnter: (s) => { s.hp -= 4; return 'Lost 4 Endurance.'; },
+    choices: [{ text: 'Approach the palace.', to: 's3-gate' }],
+  },
+  's3-gate': {
+    title: 'The Fourfold Seal',
+    text: `<p>The palace doors are bound by four links of shadow. A stone guardian sleeps beside them,
+      its sword across its knees. Each link bears a different mark: a fist, an open eye, a rune,
+      and a rising sun.</p>
+      <p>Break a link cleanly and its power may turn against the King. Fail, and the guardian will wake.</p>`,
+    choices: [
+      { text: '[Warrior] Break the iron housing around the fist.', to: 's3-force', show: isClass('warrior') },
+      { text: '[Rogue] Find the hidden catch beneath the eye.', to: 's3-lock', show: isClass('rogue') },
+      { text: '[Mage] Unweave the binding rune.', to: 's3-rune', show: isClass('mage') },
+      { text: '[Cleric] Restore the sun-mark with a prayer.', to: 's3-prayer', show: isClass('cleric') },
+      { text: 'Wake the guardian and fight for entry.', to: 's3-guardian' },
+    ],
+  },
+  's3-force': {
+    title: 'Iron Against Iron',
+    text: `<p>You wedge your weapon beneath the housing and brace against the door.</p>`,
+    check: { stat: 'STR', dc: 13, text: 'Break the binding without shattering its power.', success: 's3-seal', failure: 's3-guardian' },
+  },
+  's3-lock': {
+    title: 'The Eye That Never Closes',
+    text: `<p>The carved eye follows your hands. You work by touch, keeping your face outside its gaze.</p>`,
+    check: { stat: 'DEX', dc: 13, text: 'Release the seal without waking its watcher.', success: 's3-seal', failure: 's3-guardian' },
+  },
+  's3-rune': {
+    title: 'A Spell Written Backward',
+    text: `<p>The rune is a ward turned inside out. You trace its beginning and refuse its promised end.</p>`,
+    check: { stat: 'INT', dc: 13, text: 'Turn the binding back upon its maker.', success: 's3-seal', failure: 's3-guardian' },
+  },
+  's3-prayer': {
+    title: 'Morning Beneath the Earth',
+    text: `<p>You press your holy symbol against the sun-mark. Beneath the stone, something remembers warmth.</p>`,
+    check: { stat: 'WIS', dc: 13, text: 'Restore the ward\'s forgotten purpose.', success: 's3-seal', failure: 's3-guardian' },
+  },
+  's3-seal': {
+    title: 'A Link Unbound',
+    text: `<p>The shadow link turns to silver and falls into your hand. The doors open without a sound.
+      You hang the freed link from the Lantern; it shines like a small, patient star.</p>`,
+    onEnter: (s) => { s.flags.crownSeal = true; return 'Freed the palace seal (+1 to the final Wisdom check).'; },
+    choices: [{ text: 'Enter the palace.', to: 's3-hall' }],
+  },
+  's3-guardian': {
+    title: 'The Last Palace Guard',
+    text: `<p>The stone guardian rises. Dust spills from its joints as it lifts a sword wide enough to
+      bar the entire doorway. You must pass through its reach to enter the palace.</p>`,
+    combat: { name: 'Palace Guardian', hp: 21, dc: 13, damage: [4, 7], win: 's3-hall' },
+  },
+  's3-hall': {
+    title: 'The Hall of Unfinished Lives',
+    text: `<p>The palace is filled with ordinary things: a child's wooden horse, a half-written letter,
+      bread turned to stone. The King did not only steal lives. He stopped them in the middle.</p>
+      <p>Beyond the hall stand an archive, a little mourning bell, and the doors of the throne room.
+      A sheltered alcove offers a moment to tend your wounds.</p>`,
+    choices: [
+      { text: 'Search the royal archive.', to: 's3-archive', show: (s) => !s.flags.crownArchive },
+      { text: 'Examine the mourning bell.', to: 's3-bell', show: (s) => !s.flags.crownBellTried },
+      { text: 'Rest in the alcove.', to: 's3-rest', show: (s) => !s.flags.crownRest },
+      { text: 'Open the throne-room doors.', to: 's3-throne' },
+    ],
+  },
+  's3-archive': {
+    title: 'The Promise Before the Crown',
+    text: (s) => `
+      <p>Royal decrees crumble beneath your fingers. One older page records a king's promise never to
+      let his people die. Beneath it, another hand has written: "He kept the words, and broke the meaning."</p>
+      ${s.flags.trueName ? '<p>You remember Vesh Calloway. A stolen soul can still hear the name it once answered to.</p>' : ''}`,
+    onEnter: (s) => { s.flags.crownArchive = true; },
+    check: {
+      stat: 'INT', dc: 13, text: 'Recover the King\'s name and the wording of his oath.',
+      bonus: (s) => (s.flags.trueName ? 2 : 0), bonusLabel: 'Vesh\'s true name',
+      success: 's3-name', failure: 's3-archive-lost',
+    },
+  },
+  's3-name': {
+    title: 'Ardan, Who Feared the Dawn',
+    text: `<p><strong>Ardan</strong>. The name survives beneath the seal. His oath was not to rule forever,
+      but to shelter his people until morning. The crown has taught him to confuse the two.</p>
+      <p>If you can make him remember the difference, you may weaken him without surrendering the Lantern.</p>`,
+    onEnter: (s) => { s.flags.kingName = true; return 'Learned the King\'s name and oath.'; },
+    choices: [{ text: 'Return to the hall.', to: 's3-hall' }],
+  },
+  's3-archive-lost': {
+    title: 'Ink Beneath the Dust',
+    text: `<p>The name flakes away before you can read it. Only the impression of a crown remains.
+      Whatever promise began this tragedy, the throne room must hold its end.</p>`,
+    choices: [{ text: 'Return to the hall.', to: 's3-hall' }],
+  },
+  's3-bell': {
+    title: 'One Note for the Living',
+    text: (s) => `
+      <p>A small bronze bell hangs above a list of the city's dead. Its clapper is bound in shadow.</p>
+      ${s.flags.bell ? '<p>You recognize the shape of its inscription from Kaldra. This bell needs a clear note, not brute force.</p>' : ''}`,
+    onEnter: (s) => { s.flags.crownBellTried = true; },
+    choices: [
+      { text: 'Use the lesson of Kaldra to free the clapper.', to: 's3-bell-song', show: (s) => s.flags.bell },
+      { text: 'Pull the clapper free.', to: 's3-bell-check', show: (s) => !s.flags.bell },
+    ],
+  },
+  's3-bell-check': {
+    title: 'The Weight of Silence',
+    text: `<p>You take hold of the clapper. The shadow resists like cold iron.</p>`,
+    check: { stat: 'STR', dc: 12, text: 'Free the mourning bell.', success: 's3-bell-song', failure: 's3-bell-hurt' },
+  },
+  's3-bell-song': {
+    title: 'A City Remembers',
+    text: `<p>The bell rings once. Doors open along the empty streets. Pale faces turn toward the palace,
+      and from the throne room comes a cry of fear: the King can no longer hide his people from the dawn.</p>`,
+    onEnter: (s) => { s.flags.kingBell = true; return 'The mourning bell has weakened the Hollow King.'; },
+    choices: [{ text: 'Return to the hall.', to: 's3-hall' }],
+  },
+  's3-bell-hurt': {
+    title: 'A Silence That Bites',
+    text: `<p>The shadow snaps across your hands. You step back, fingers numb. The bell will not ring
+      for you, but the Lantern still burns.</p>`,
+    onEnter: (s) => { s.hp -= 3; return 'Lost 3 Endurance.'; },
+    choices: [{ text: 'Return to the hall.', to: 's3-hall' }],
+  },
+  's3-rest': {
+    title: 'A Small Circle of Warmth',
+    text: `<p>You set the Lantern in the alcove and bind your wounds in its light. For a moment, you can
+      hear Thornwick's well and Dunmere's gulls instead of the silence of the buried city.</p>
+      <p>The oil is precious. You cannot afford another rest here.</p>`,
+    onEnter: (s) => {
+      s.flags.crownRest = true;
+      s.hp = Math.min(s.maxHp, s.hp + 8);
+      return 'Recovered up to 8 Endurance.';
+    },
+    choices: [{ text: 'Return to the hall.', to: 's3-hall' }],
+  },
+  's3-throne': {
+    title: 'The Hollow King',
+    text: (s) => `
+      <p>A crown of black glass floats above a throne of roots. Beneath it sits a man so thin that
+      starlight shows through his hands. He looks past you to the Lantern.</p>
+      <p>"I asked only for one more night," he says. "Give me the light, and none of them need ever leave."</p>
+      ${s.flags.kingBell ? '<p>The mourning bell still trembles in his bones. His shadow cannot keep its shape.</p>' : ''}
+      ${s.storyOutcomes.lantern === 'dim' ? '<p>A blue thread reaches from the weakened Lantern toward his crown. He smiles as it feeds him.</p>' : ''}`,
+    choices: [
+      { text: 'Call him Ardan and remind him of his oath.', to: 's3-oath', show: (s) => s.flags.kingName },
+      { text: 'Refuse him and raise your weapon.', to: (s) => s.flags.kingBell ? 's3-king-weakened' : s.storyOutcomes.lantern === 'dim' ? 's3-king-empowered' : 's3-king' },
+    ],
+  },
+  's3-oath': {
+    title: 'Until Morning',
+    text: `<p>"You promised to shelter them until morning, Ardan. Not to steal the morning."</p>
+      <p>The King looks toward the doors, where his people wait. His crown tightens like a trap.
+      "Then break it," he whispers. The shadow rises to fight without him.</p>`,
+    choices: [{ text: 'Face the crown\'s shadow.', to: 's3-king-weakened' }],
+  },
+  's3-king': {
+    title: 'The Last Night',
+    text: `<p>The King stands, drawing every shadow in the hall around him. Your Lantern is a single
+      golden point against a darkness that has waited centuries for this moment.</p>`,
+    combat: { name: 'Hollow King', hp: 32, dc: 14, damage: [5, 8], win: 's3-crown' },
+  },
+  's3-king-empowered': {
+    title: 'The Light He Tasted',
+    text: `<p>The blue edge of the Lantern's flame lashes toward the crown. The King drinks its stolen
+      strength, growing taller than his throne. What began at Kaldra must be ended here.</p>`,
+    combat: { name: 'Hollow King, Unbound', hp: 36, dc: 15, damage: [5, 8], win: 's3-crown' },
+  },
+  's3-king-weakened': {
+    title: 'The Crown Without a King',
+    text: `<p>The black crown rises on a body of unraveling shadow. It strikes with a thousand grasping
+      hands, but through the gaps you can see the first pale line of morning.</p>`,
+    combat: { name: 'Shadow of the Crown', hp: 24, dc: 12, damage: [4, 7], win: 's3-crown' },
+  },
+  's3-crown': {
+    title: 'The Last Flame',
+    text: (s) => `
+      <p>The crown falls at your feet, unbroken. Within its glass, a small dark shape beats like a heart.
+      Beyond the windows, the waiting dead turn their faces toward you.</p>
+      <p>You open the Lantern and let its light fall upon the crown. To free the city, you must hold
+      that light steady while the whole weight of its stolen night pushes back.</p>
+      ${s.flags.crownSeal ? '<p>The silver link you freed holds the shadows in place.</p>' : ''}
+      ${s.storyOutcomes['ashen-tide'] === 'cleansed' ? '<p>The pearl sliver answers with the light of Dunmere.</p>' : ''}`,
+    check: {
+      stat: 'WIS', dc: 14, text: 'Unmake the crown and release the city.',
+      bonus: (s) => (s.flags.crownSeal ? 1 : 0) + (has(s, 'Ward of Ash') ? 1 : 0)
+        + (s.storyOutcomes.lantern === 'dawn' ? 1 : 0) + (s.storyOutcomes['ashen-tide'] === 'cleansed' ? 1 : 0),
+      bonusLabel: 'Light gathered across your journey', success: 's3-dawn', failure: 's3-watch',
+    },
+  },
+  's3-dawn': {
+    title: 'A Morning for Everyone',
+    ending: 'victory', storyId: 'hollow-crown', outcome: 'freed',
+    text: (s) => `
+      <p>The crown cracks from rim to heart. Sunlight fills the palace, and the waiting dead dissolve
+      into a hundred small, ordinary sounds: laughter, footsteps, a door closing gently.</p>
+      ${s.flags.kingName ? '<p>For a moment Ardan stands among them, no taller than anyone else. He bows his uncovered head, and is gone.</p>' : ''}
+      <p>You return the Lantern to Thornwick. In Dunmere, the boats put out on a clear sea. No bells
+      ring in alarm that spring.</p>
+      <p>They tell many tales of ${s.name} the ${CLASSES[s.cls].name}. Your favorite ends simply:
+      at last, the people of Caer Hollow were allowed to go home.</p>`,
+  },
+  's3-watch': {
+    title: 'The Keeper of the Last Light',
+    ending: 'victory', storyId: 'hollow-crown', outcome: 'bound',
+    text: (s) => `
+      <p>You cannot break the crown, but you can deny it a king. You lower it into the Lantern's
+      golden flame and close the door. The glass turns clear. Beyond the palace, the dead find rest.</p>
+      <p>Thornwick and Dunmere are safe. Yet the Lantern must never go out, and someone must remain
+      to tend it. You take the first watch as daylight crosses the empty throne.</p>
+      <p>When travelers speak of ${s.name}, they speak not only of battles won, but of a promise kept.
+      The Hollow King will never rule again while your light endures.</p>`,
   },
   death: {
     number: '✝', title: 'Your Adventure Ends Here',
     ending: 'death',
-    text: `<p>Your strength fails and the world goes dark. Far to the south, in Thornwick, the last oil
-      in the village lamps burns low as the new moon rises...</p>`,
+    text: (s) => s.completedStories.includes('ashen-tide')
+      ? `<p>Your strength fails and the Lantern's light dwindles. In Caer Hollow, the crown turns
+        toward its empty throne. Far away, the bells of Thornwick begin to ring...</p>`
+      : `<p>Your strength fails and the world goes dark. Far to the south, in Thornwick, the last oil
+        in the village lamps burns low as the new moon rises...</p>`,
   },
 };
