@@ -9,7 +9,8 @@ A browser-based choose-your-own-adventure fantasy RPG in the spirit of classic 1
 - **Stat checks** — roll a d20 + your stat modifier against a Difficulty Class. Natural 20 always succeeds; natural 1 always fails.
 - **Animated 3D d20** — every roll tumbles a twenty-sided die across the window and lands on the rolled face.
 - **Combat** — round-by-round d20 attacks using your class's attack stat, plus potions and class abilities.
-- **Two linked stories** with class-specific paths, equipment rewards, items that open new options, multiple endings, and autosave (localStorage).
+- **Story illustrations** — atmospheric artwork appears at pivotal scenes, with responsive layouts and accessible descriptions.
+- **Three linked stories** — *The Lantern of Kaldra*, *The Ashen Tide*, and *The Crown of Hollow Night* — with class-specific paths, equipment rewards, multiple endings, and autosave (localStorage). Earlier discoveries and outcomes affect the final adventure.
 
 ## Running locally
 
@@ -22,3 +23,7 @@ It's a static site — no build step. Open `index.html` in a browser, or run `py
 - `dice.js` — canvas-rendered, animated 3D icosahedron (d20)
 - `story.js` — classes and story sections
 - `game.js` — game engine (state, checks, combat, saving)
+
+## Checking story changes
+
+Run `node --test` for story-link, progression, save compatibility, and branching checks.

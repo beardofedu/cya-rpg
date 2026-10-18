@@ -16,7 +16,7 @@
       hp: c.hp, maxHp: c.hp, gold: 0,
       items: [...c.items],
       equipment: { weapon: c.weapon, armor: c.armor },
-      level: 1, completedStories: [],
+      level: 1, completedStories: [], storyOutcomes: {},
       flags: {}, abilityUsed: false,
       section: null, check: null, combat: null,
     };
@@ -33,6 +33,7 @@
     s.items ||= [...c.items];
     s.level = Number.isInteger(s.level) && s.level > 0 ? s.level : 1;
     s.completedStories = Array.isArray(s.completedStories) ? s.completedStories : [];
+    s.storyOutcomes ||= {};
     s.equipment ||= {};
     for (const slot of ['weapon', 'armor']) {
       const equipped = s.equipment[slot];
@@ -49,6 +50,7 @@
   const armorFor = (s) => EQUIPMENT[s.equipment.armor] || { defense: 0 };
 
   function completeStory(sec) {
+    if (sec.storyId && sec.outcome) state.storyOutcomes[sec.storyId] = sec.outcome;
     if (!sec.storyId || state.completedStories.includes(sec.storyId)) return '';
     state.completedStories.push(sec.storyId);
     state.level += 1;
@@ -184,6 +186,15 @@
     $('section-number').textContent = sec.number ?? state.section;
     $('section-title').textContent = sec.title;
     $('section-text').innerHTML = resolve(sec.text, state);
+    const illustration = $('section-illustration');
+    if (sec.illustration) {
+      illustration.querySelector('img').src = sec.illustration.src;
+      illustration.querySelector('img').alt = sec.illustration.alt;
+      illustration.querySelector('figcaption').textContent = sec.illustration.caption;
+      illustration.classList.remove('hidden');
+    } else {
+      illustration.classList.add('hidden');
+    }
     const inter = $('section-interactive');
     const choices = $('section-choices');
     inter.innerHTML = '';
@@ -414,7 +425,10 @@
   const saved = load();
   if (saved && saved.cls && CLASSES[saved.cls] && STORY[saved.section]) {
     state = normalizeState(saved);
-    if (STORY[state.section].ending === 'victory' && completeStory(STORY[state.section])) save();
+    if (STORY[state.section].ending === 'victory') {
+      completeStory(STORY[state.section]);
+      save();
+    }
     render();
   }
   else renderSelect();
