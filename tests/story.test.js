@@ -7,6 +7,8 @@ const vm = require('node:vm');
 const root = path.join(__dirname, '..');
 const storySource = readFileSync(path.join(root, 'story.js'), 'utf8');
 const gameSource = readFileSync(path.join(root, 'game.js'), 'utf8');
+const contentSource = ['story-es.js', 'adventures.js', 'i18n.js']
+  .map((file) => readFileSync(path.join(root, file), 'utf8')).join('\n');
 const saveKey = 'cya-rpg-save-v1';
 
 class Element {
@@ -36,6 +38,7 @@ class Element {
   get innerHTML() { return this.html || ''; }
   appendChild(child) { this.children.push(child); }
   addEventListener(event, callback) { this.listeners[event] = callback; }
+  setAttribute(name, value) { this[name] = value; }
   querySelectorAll() { return []; }
   querySelector(selector) {
     if (!this.selectors.has(selector)) this.selectors.set(selector, new Element());
@@ -49,12 +52,16 @@ class Element {
   }
 }
 
-function makeGame(saved) {
+function makeGame(saved, language = 'en') {
   const elements = new Map();
   const storage = new Map(saved ? [[saveKey, JSON.stringify(saved)]] : []);
+  storage.set('cya-rpg-language', language);
   const context = vm.createContext({
     console,
     document: {
+      documentElement: {},
+      querySelectorAll: () => [],
+      querySelector: (selector) => context.document.getElementById(selector),
       getElementById: (id) => {
         if (!elements.has(id)) elements.set(id, new Element());
         return elements.get(id);
@@ -70,18 +77,30 @@ function makeGame(saved) {
     setTimeout: () => 1,
     clearTimeout() {},
     confirm: () => true,
-    Dice: { rollD20: async () => runtime.roll },
+    Dice: { rollD20: async (formatResult) => {
+      runtime.diceResult = formatResult(runtime.roll);
+      return runtime.pendingRoll ?? runtime.roll;
+    } },
   });
-  vm.runInContext(`${storySource}\nthis.data = { STORY, CLASSES };`, context);
+  vm.runInContext(`${storySource}\n${contentSource}\nthis.data = { STORY, STORY_ES, CLASSES, EQUIPMENT, ADVENTURE_SETS, I18n };`, context);
   const runtime = {
     ...context.data,
     roll: 20,
     element: (id) => context.document.getElementById(id),
     saved: () => JSON.parse(storage.get(saveKey)),
+    language: () => storage.get('cya-rpg-language'),
   };
   vm.runInContext(gameSource, context);
   runtime.game = context.window.Game;
   runtime.state = () => runtime.game.state;
+  runtime.setLanguage = (value) => {
+    runtime.element('language-select').value = value;
+    runtime.element('language-select').listeners.change();
+  };
+  runtime.chooseSet = (value) => {
+    runtime.element('adventure-set').value = value;
+    runtime.element('adventure-set').listeners.change();
+  };
   runtime.click = async (label) => {
     const descendants = (el) => [el, ...el.children.flatMap(descendants)];
     const buttons = ['section-choices', 'section-interactive']
@@ -99,17 +118,26 @@ async function start(runtime, cls) {
 
 async function resolveCheck(runtime, roll) {
   runtime.roll = roll;
-  await runtime.click('Roll d20');
-  await runtime.click('Continue');
+  await runtime.click(runtime.I18n.language === 'es' ? 'Lanzar d20' : 'Roll d20');
+  await runtime.click(runtime.I18n.language === 'es' ? 'Continuar' : 'Continue');
 }
 
 async function winCombat(runtime) {
   runtime.roll = 20;
   for (let round = 0; !runtime.state().combat.over; round++) {
     assert.ok(round < 20, 'Combat must finish');
-    await runtime.click('Attack');
+    await runtime.click(runtime.I18n.language === 'es' ? 'Atacar' : 'Attack');
   }
-  await runtime.click('Continue');
+  await runtime.click(runtime.I18n.language === 'es' ? 'Continuar' : 'Continue');
+}
+
+async function choose(runtime, target) {
+  const section = runtime.I18n.section(runtime.state().section);
+  const choice = section.choices.find((entry) =>
+    (typeof entry.to === 'function' ? entry.to(runtime.state()) : entry.to) === target
+    && (!entry.show || entry.show(runtime.state())) && (!entry.req || entry.req(runtime.state())));
+  assert.ok(choice, `Missing choice to ${target}`);
+  await runtime.click(choice.text);
 }
 
 test('all story links and illustration assets exist across class and flag variants', () => {
@@ -322,4 +350,319 @@ test('illustration is displayed at the beacon and hidden on unillustrated scenes
   assert.ok(figure.querySelector('img').alt);
   runtime.game.goTo('s3-1');
   assert.equal(figure.classList.contains('hidden'), true);
+});
+
+test('each trilogy starts independently and the set selection survives a language change', async () => {
+  for (const [set, section] of [['kaldra', 1], ['starfall', 'orchard-1']]) {
+    const runtime = makeGame();
+    runtime.chooseSet(set);
+    runtime.element('hero-name').value = 'Sol';
+    runtime.setLanguage('es');
+    assert.equal(runtime.element('adventure-set').value, set);
+    assert.match(runtime.element('set-stories').innerHTML, /<li>.+<\/li>/);
+    await start(runtime, 'mage');
+    assert.equal(runtime.state().section, section);
+    assert.equal(runtime.state().adventureSet, set);
+    assert.equal(runtime.state().name, 'Sol');
+    assert.equal(runtime.state().level, 1);
+    assert.equal(runtime.state().completedStories.length, 0);
+    assert.equal(runtime.state().gold, 15);
+    assert.ok(runtime.state().items.includes('Oak Staff'));
+    assert.match(runtime.element('sheet-body').innerHTML, /Bastón de roble/);
+  }
+});
+
+test('every section has complete Spanish presentation without overriding mechanics', () => {
+  const runtime = makeGame(undefined, 'es');
+  const flags = ['bell', 'trueName', 'kingBell', 'kingName', 'crownSeal', 'tideBlessing',
+    'starSeed', 'riverSong', 'glassSluice', 'starMap', 'starRelease'];
+  for (const [id, original] of Object.entries(runtime.STORY)) {
+    const patch = runtime.STORY_ES[id];
+    assert.ok(patch, `${id} has Spanish`);
+    assert.notEqual(patch.title, original.title, `${id} title is translated`);
+    assert.deepEqual(Object.keys(patch).filter((key) =>
+      !['title', 'text', 'choices', 'check', 'combat', 'illustration'].includes(key)), []);
+    assert.equal(patch.choices?.length, original.choices?.length, `${id} choice count matches`);
+    for (const [index, choice] of (original.choices || []).entries()) {
+      assert.ok(patch.choices[index].text);
+      assert.notEqual(patch.choices[index].text, choice.text);
+      if (choice.reqText) assert.ok(patch.choices[index].reqText);
+    }
+    if (original.check) {
+      assert.ok(patch.check.text);
+      assert.notEqual(patch.check.text, original.check.text);
+      if (original.check.bonusLabel) assert.ok(patch.check.bonusLabel);
+    }
+    if (original.combat) assert.ok(patch.combat.name);
+    if (original.illustration) {
+      assert.ok(patch.illustration.alt);
+      assert.ok(patch.illustration.caption);
+    }
+    for (const cls of Object.keys(runtime.CLASSES)) {
+      for (const enabled of [false, true]) {
+        for (const outcome of ['dawn', 'dim', undefined]) {
+          const state = {
+            cls, name: 'Sol', hp: 20, maxHp: 30, gold: 50,
+            adventureSet: id.startsWith('orchard') ? 'starfall' : 'kaldra',
+            flags: Object.fromEntries(flags.map((key) => [key, enabled])),
+            items: enabled ? ['Ward of Ash', 'Rope', 'Iron Key'] : [],
+            completedStories: enabled ? ['ashen-tide'] : [],
+            storyOutcomes: {
+              lantern: outcome, 'ashen-tide': enabled ? 'cleansed' : 'scarred',
+              'clockwork-orchard': enabled ? 'bloom' : 'broken',
+              'glass-river': enabled ? 'flowing' : 'fractured',
+            },
+          };
+          const localized = runtime.I18n.section(id);
+          const text = typeof localized.text === 'function' ? localized.text(state) : localized.text;
+          assert.equal(typeof text, 'string');
+          assert.ok(!text.includes('undefined'), `${id} Spanish has no missing values`);
+          assert.notEqual(text, typeof original.text === 'function' ? original.text(state) : original.text);
+          for (const [index, choice] of (original.choices || []).entries()) {
+            assert.equal(localized.choices[index].to, choice.to);
+            assert.equal(localized.choices[index].effect, choice.effect);
+            assert.equal(localized.choices[index].req, choice.req);
+            if (choice.reqText) {
+              const hint = localized.choices[index].reqText;
+              assert.ok(typeof hint === 'function' ? hint(state) : hint);
+            }
+          }
+          if (original.check) {
+            assert.equal(localized.check.dc, original.check.dc);
+            assert.equal(localized.check.bonus, original.check.bonus);
+          }
+          for (const hook of [original.onEnter, ...(original.choices || []).map((choice) => choice.effect)]) {
+            if (!hook) continue;
+            const message = hook(structuredClone(state));
+            if (message) assert.notEqual(runtime.I18n.t(message), message, `${id}: translated notification ${message}`);
+          }
+        }
+      }
+    }
+  }
+});
+
+for (const language of ['en', 'es']) {
+  for (const cls of ['warrior', 'rogue', 'mage', 'cleric']) {
+    for (const success of [true, false]) {
+      test(`${language}: ${cls} completes the new trilogy with ${success ? 'successful' : 'failed'} checks`, async () => {
+        const runtime = makeGame(undefined, language);
+        runtime.chooseSet('starfall');
+        await start(runtime, cls);
+        await choose(runtime, 'orchard-gate');
+        await choose(runtime, `orchard-${{ warrior: 'strength', rogue: 'dexterity', mage: 'intellect', cleric: 'wisdom' }[cls]}`);
+        await resolveCheck(runtime, success ? 20 : 1);
+        if (!success) await winCombat(runtime);
+        await choose(runtime, 'orchard-heart');
+        await resolveCheck(runtime, success ? 20 : 1);
+        assert.equal(runtime.state().section, success ? 'orchard-bloom' : 'orchard-break');
+        assert.equal(runtime.state().level, 2);
+        runtime.state().hp = 1;
+        runtime.state().abilityUsed = true;
+        await runtime.click(runtime.I18n.t('Continue to the next story →'));
+        assert.equal(runtime.state().section, 'glass-1');
+        assert.equal(runtime.state().hp, runtime.state().maxHp);
+        assert.equal(runtime.state().abilityUsed, false);
+        if (success) {
+          await choose(runtime, 'glass-reeds');
+          await choose(runtime, 'glass-store');
+        } else {
+          await choose(runtime, 'glass-crossing');
+          await resolveCheck(runtime, 1);
+          await winCombat(runtime);
+        }
+        assert.equal(runtime.state().items.filter((item) => item === 'Tideglass Armor').length, 1);
+        await choose(runtime, 'glass-lock');
+        await choose(runtime, `glass-${{ warrior: 'force', rogue: 'catch', mage: 'spell', cleric: 'prayer' }[cls]}`);
+        await resolveCheck(runtime, success ? 20 : 1);
+        await choose(runtime, 'glass-heart');
+        await resolveCheck(runtime, success ? 20 : 1);
+        assert.equal(runtime.state().section, success ? 'glass-flow' : 'glass-fracture');
+        assert.equal(runtime.state().level, 3);
+        await runtime.click(runtime.I18n.t('Continue to the next story →'));
+        if (success) {
+          await choose(runtime, 'star-workshop');
+          await resolveCheck(runtime, 20);
+          await choose(runtime, 'star-dome');
+        } else {
+          await choose(runtime, 'star-stair');
+          await resolveCheck(runtime, 1);
+          await choose(runtime, 'star-dome');
+        }
+        await choose(runtime, 'star-rest');
+        await choose(runtime, 'star-dome');
+        assert.ok(!runtime.I18n.section('star-dome').choices[0].show(runtime.state()), 'Rest cannot be farmed');
+        await choose(runtime, success ? 'star-release' : 'star-sentinel');
+        if (success) await choose(runtime, 'star-heart');
+        else await winCombat(runtime);
+        assert.equal(runtime.STORY['star-heart'].check.bonus(runtime.state()), success ? 3 : 0);
+        await resolveCheck(runtime, success ? 20 : 1);
+        assert.equal(runtime.state().section, success ? 'star-dawn' : 'star-watch');
+        assert.equal(runtime.state().level, 4);
+        assert.deepEqual(Array.from(runtime.state().completedStories), ['clockwork-orchard', 'glass-river', 'last-star']);
+        assert.equal(runtime.state().storyOutcomes['last-star'], success ? 'returned' : 'sheltered');
+        const reloaded = makeGame(runtime.saved(), runtime.language());
+        assert.equal(reloaded.state().level, 4);
+        assert.equal(reloaded.state().adventureSet, 'starfall');
+        assert.equal(reloaded.STORY[reloaded.state().section].nextStory, undefined);
+      });
+    }
+  }
+}
+
+test('all new sections are reachable from the new start and never link into the original trilogy', () => {
+  const { STORY } = makeGame();
+  const reached = new Set();
+  function visit(id) {
+    if (reached.has(id)) return;
+    reached.add(id);
+    const section = STORY[id];
+    assert.ok(section, `Section ${id} exists`);
+    assert.match(id, /^(orchard|glass|star)-/);
+    const links = [...(section.choices || []).map((choice) => choice.to), section.check?.success,
+      section.check?.failure, section.combat?.win, section.nextStory].filter((link) => link !== undefined);
+    links.forEach(visit);
+  }
+  visit('orchard-1');
+  for (const id of Object.keys(STORY).filter((id) => /^(orchard|glass|star)-/.test(id))) {
+    assert.ok(reached.has(id), `${id} reachable from the new trilogy`);
+  }
+});
+
+test('language switches preserve pending/resolved checks, combat, equipment, and rewards', async () => {
+  const runtime = makeGame();
+  await start(runtime, 'rogue');
+  runtime.game.goTo(3);
+  const before = JSON.stringify(runtime.state());
+  runtime.setLanguage('es');
+  assert.equal(JSON.stringify(runtime.state()), before);
+  assert.match(runtime.element('section-interactive').children[0].innerHTML, /Prueba de Sabiduría/);
+  runtime.roll = 20;
+  await runtime.click('Lanzar d20');
+  const checked = JSON.stringify(runtime.state());
+  runtime.setLanguage('en');
+  assert.equal(JSON.stringify(runtime.state()), checked);
+  await runtime.click('Continue');
+  assert.equal(runtime.state().section, 5);
+  const gained = JSON.stringify(runtime.state());
+  runtime.setLanguage('es');
+  assert.equal(JSON.stringify(runtime.state()), gained, 'Entry effects are not repeated');
+  runtime.game.goTo(4);
+  runtime.roll = 1;
+  await runtime.click('Atacar');
+  const combat = JSON.stringify(runtime.state());
+  runtime.setLanguage('en');
+  assert.equal(JSON.stringify(runtime.state()), combat);
+  assert.match(runtime.element('section-interactive').children[0].innerHTML, /hits you for/);
+  runtime.setLanguage('es');
+  assert.match(runtime.element('section-interactive').children[0].innerHTML, /te inflige/);
+  const reloaded = makeGame(runtime.saved(), runtime.language());
+  assert.equal(reloaded.language(), 'es');
+  assert.equal(JSON.stringify(reloaded.state()), combat);
+  assert.match(reloaded.element('sheet-body').innerHTML, /Dagas gemelas/);
+  assert.ok(reloaded.state().items.includes('Twin Daggers'), 'Item IDs stay canonical');
+  assert.equal(reloaded.state().adventureSet, 'kaldra');
+});
+
+test('legacy English combat logs can be rendered in Spanish without changing their save format', async () => {
+  const initial = makeGame();
+  await start(initial, 'mage');
+  initial.game.goTo(4);
+  const saved = initial.saved();
+  delete saved.adventureSet;
+  saved.combat.log = [
+    'Rolled 1+3=4: Fumble! The Hollow-Eyed Wolves hits you for <strong>4</strong>.',
+    'Rolled 20+3=23: Critical! You hit for <strong>12</strong>.',
+    'Fireball! You deal <strong>14</strong> damage.',
+    '<strong>The Hollow-Eyed Wolves is defeated!</strong>',
+    'You drink a Healing Potion (+10 Endurance).',
+  ];
+  const runtime = makeGame(saved, 'es');
+  const html = runtime.element('section-interactive').children[0].innerHTML;
+  assert.ok(!html.includes('Rolled') && !html.includes('hits you') && !html.includes('is defeated'));
+  assert.match(html, /Bola de fuego/);
+  assert.match(html, /poción curativa/);
+  assert.deepEqual(Array.from(runtime.state().combat.log), saved.combat.log);
+  assert.equal(runtime.state().adventureSet, 'kaldra');
+});
+
+test('new trilogy death uses its own setting in both languages', async () => {
+  const runtime = makeGame();
+  runtime.chooseSet('starfall');
+  await start(runtime, 'warrior');
+  runtime.state().hp = 1;
+  runtime.game.goTo('orchard-scrape');
+  assert.equal(runtime.state().section, 'death');
+  assert.match(runtime.element('section-text').innerHTML, /Bellweather/);
+  assert.ok(!runtime.element('section-text').innerHTML.includes('Thornwick'));
+  runtime.setLanguage('es');
+  assert.match(runtime.element('section-text').innerHTML, /molinero/);
+});
+
+test('changing language and restarting are disabled during an unresolved dice animation', async () => {
+  const runtime = makeGame();
+  await start(runtime, 'warrior');
+  runtime.game.goTo(3);
+  let release;
+  runtime.pendingRoll = new Promise((resolve) => { release = resolve; });
+  const rolling = runtime.click('Roll d20');
+  assert.equal(runtime.element('language-select').disabled, true);
+  assert.equal(runtime.element('btn-restart').disabled, true);
+  runtime.setLanguage('es');
+  assert.equal(runtime.language(), 'en');
+  assert.equal(runtime.state().check.done, false);
+  release(20);
+  await rolling;
+  assert.equal(runtime.element('language-select').disabled, false);
+  assert.equal(runtime.element('btn-restart').disabled, false);
+  assert.equal(runtime.state().check.roll, 20);
+  runtime.setLanguage('es');
+  assert.equal(runtime.state().check.roll, 20);
+});
+
+test('the original trilogy plays through entirely in Spanish with canonical progression', async () => {
+  const runtime = makeGame(undefined, 'es');
+  await start(runtime, 'cleric');
+  await choose(runtime, 3);
+  await resolveCheck(runtime, 20);
+  await choose(runtime, 6);
+  await choose(runtime, 10);
+  await choose(runtime, 'bridge-check');
+  await resolveCheck(runtime, 20);
+  await choose(runtime, 13);
+  await winCombat(runtime);
+  await choose(runtime, 14);
+  await choose(runtime, 17);
+  await choose(runtime, 18);
+  await choose(runtime, 21);
+  await resolveCheck(runtime, 20);
+  await choose(runtime, 20);
+  await choose(runtime, 23);
+  await winCombat(runtime);
+  await resolveCheck(runtime, 20);
+  assert.equal(runtime.state().section, 25);
+  await runtime.click(runtime.I18n.t('Continue to the next story →'));
+  await choose(runtime, 's2-shrine');
+  await resolveCheck(runtime, 20);
+  await choose(runtime, 's2-cross');
+  await resolveCheck(runtime, 20);
+  await choose(runtime, 's2-cache');
+  await choose(runtime, 's2-keeper');
+  await winCombat(runtime);
+  await resolveCheck(runtime, 20);
+  assert.equal(runtime.state().section, 's2-dawn');
+  await runtime.click(runtime.I18n.t('Continue to the next story →'));
+  await choose(runtime, 's3-road');
+  await resolveCheck(runtime, 20);
+  await choose(runtime, 's3-prayer');
+  await resolveCheck(runtime, 20);
+  await choose(runtime, 's3-hall');
+  await choose(runtime, 's3-throne');
+  await choose(runtime, 's3-king');
+  await winCombat(runtime);
+  await resolveCheck(runtime, 20);
+  assert.equal(runtime.state().section, 's3-dawn');
+  assert.equal(runtime.state().level, 4);
+  assert.deepEqual(Array.from(runtime.state().completedStories), ['lantern', 'ashen-tide', 'hollow-crown']);
+  assert.match(runtime.element('section-interactive').children[0].innerHTML, /Fin/);
 });

@@ -40,6 +40,7 @@ function makeDice(saved = null, blockedStorage = false) {
   const document = { getElementById: element, addEventListener() {}, removeEventListener() {} };
   const context = vm.createContext({
     document,
+    I18n: { t: (text) => text },
     window: {
       innerWidth: 1000, innerHeight: 800, devicePixelRatio: 1, addEventListener() {},
       crypto: { getRandomValues: (buffer) => { buffer[0] = 19; } },

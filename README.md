@@ -11,7 +11,11 @@ A browser-based choose-your-own-adventure fantasy RPG in the spirit of classic 1
 - **Custom dice appearance** — choose from six colors and a solid or translucent finish on the Adventure Sheet, with an instant preview. Your preference is remembered separately from adventure saves and applies to every roll.
 - **Combat** — round-by-round d20 attacks using your class's attack stat, plus potions and class abilities.
 - **Story illustrations** — atmospheric artwork appears at pivotal scenes, with responsive layouts and accessible descriptions.
-- **Three linked stories** — *The Lantern of Kaldra*, *The Ashen Tide*, and *The Crown of Hollow Night* — with class-specific paths, equipment rewards, multiple endings, and autosave (localStorage). Earlier discoveries and outcomes affect the final adventure.
+- **Two standalone trilogies** — choose your starting set before picking a class. Each starts with a fresh level-one hero and carries discoveries, equipment, and outcomes through three linked stories:
+  - *The Lantern of Kaldra*, *The Ashen Tide*, and *The Crown of Hollow Night*: recover a stolen light, save a drowned coast, and confront the Hollow King.
+  - *The Clockwork Orchard*, *The Glass River*, and *The Last Star*: restore the seasons, free a frozen river, and decide the fate of three fallen stars.
+- **English and Spanish** — use the language selector at any time outside a dice animation. All six stories, choices, rules, equipment, and combat messages are available in both languages. Your language preference is remembered separately from your adventure.
+- **Autosave** — one active adventure is saved in localStorage. Existing saves continue in the original trilogy; changing language does not restart a story or repeat rewards. Use **New Adventure** to return to the trilogy chooser (this replaces your current run).
 
 ## Running locally
 
@@ -23,8 +27,11 @@ It's a static site — no build step. Open `index.html` in a browser, or run `py
 - `style.css` — parchment gamebook styling
 - `dice.js` — canvas-rendered, animated 3D icosahedron (d20)
 - `story.js` — classes and story sections
+- `story-es.js` — Spanish presentation for the original trilogy
+- `adventures.js` — trilogy definitions and the new bilingual adventures
+- `i18n.js` — language preference, UI translations, and localized story presentation
 - `game.js` — game engine (state, checks, combat, saving)
 
 ## Checking story changes
 
-Run `node --test` for story-link, progression, save compatibility, branching, and dice appearance checks.
+Run `node --test` for story-link, progression, save compatibility, branching, translation coverage, bilingual playthrough, and dice appearance checks.

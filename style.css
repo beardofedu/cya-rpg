@@ -40,6 +40,10 @@ h1, h2, h3, .btn, .section-number { font-family: "Cinzel", Georgia, serif; }
 }
 
 .intro { max-width: 760px; margin: 0 auto 1.5rem; text-align: center; }
+.language-control { display: inline-flex; align-items: center; gap: 0.5rem; margin-top: 0.75rem; }
+.language-control select, #adventure-set { font: inherit; padding: 0.3rem 0.5rem; border: 1px solid #8a6a40; border-radius: 4px; background: var(--parchment); color: var(--ink); max-width: 100%; }
+#set-stories { display: inline-block; margin: 0; text-align: left; }
+#adventure-set { margin-top: 0.4rem; }
 
 .class-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1.25rem; }
 .class-card { cursor: pointer; display: flex; flex-direction: column; transition: transform 0.15s; border: none; text-align: left; font: inherit; color: inherit; }
@@ -70,7 +74,9 @@ h1, h2, h3, .btn, .section-number { font-family: "Cinzel", Georgia, serif; }
 
 .page { position: relative; min-height: 420px; }
 .section-number { position: absolute; top: 0.75rem; right: 1rem; font-size: 2rem; color: var(--gold); opacity: 0.8; }
+.section-number.named { position: static; font-size: 0.85rem; text-align: right; overflow-wrap: anywhere; }
 .page h2 { margin: 0 0 0.75rem; color: var(--blood); padding-right: 3rem; }
+.section-number.named + h2 { padding-right: 0; }
 .story-illustration { margin: 0 0 1rem; }
 .story-illustration img { display: block; width: 100%; max-height: 340px; object-fit: cover; border: 3px solid #8a6a40; border-radius: 4px; box-shadow: 0 3px 10px rgba(43, 29, 18, 0.35); }
 .story-illustration figcaption { margin-top: 0.35rem; text-align: center; font-size: 0.85rem; font-style: italic; color: var(--ink-soft); }
