@@ -181,7 +181,7 @@
           requestAnimationFrame(frame);
         } else {
           const text = typeof describe === 'function' ? describe(value) : `You rolled ${value}`;
-          resultEl.innerHTML = `${text}<span class="hint">Click anywhere to continue</span>`;
+          resultEl.innerHTML = `${text}<span class="hint">${I18n.t('Click anywhere to continue')}</span>`;
           resultEl.classList.remove('hidden');
           const done = () => {
             overlay.removeEventListener('click', done);
