@@ -40,6 +40,24 @@
       <aside class="sheet parchment" aria-label="Adventure Sheet">
         <h2 data-i18n="Adventure Sheet">Adventure Sheet</h2>
         <div id="sheet-body"></div>
+        <fieldset class="dice-appearance">
+          <legend>Dice appearance</legend>
+          <span id="dice-preview" class="dice-preview" aria-hidden="true">20</span>
+          <label for="dice-color">Color</label>
+          <select id="dice-color">
+            <option value="ruby">Ruby red</option>
+            <option value="sapphire">Sapphire blue</option>
+            <option value="emerald">Emerald green</option>
+            <option value="amethyst">Amethyst purple</option>
+            <option value="amber">Amber gold</option>
+            <option value="obsidian">Obsidian black</option>
+          </select>
+          <label for="dice-finish">Finish</label>
+          <select id="dice-finish">
+            <option value="solid">Solid</option>
+            <option value="translucent">Translucent</option>
+          </select>
+        </fieldset>
         <div class="sheet-actions">
           <button id="btn-ability" class="btn small"></button>
           <button id="btn-potion" class="btn small">Drink Potion</button>

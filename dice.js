@@ -67,6 +67,45 @@
   const resultEl = document.getElementById('dice-result');
   const ctx = canvas.getContext('2d');
   const LIGHT = norm([-0.45, 0.6, 0.85]);
+  const APPEARANCE_KEY = 'cya-rpg-dice-appearance-v1';
+  const colors = {
+    ruby: [150, 28, 32],
+    sapphire: [30, 80, 175],
+    emerald: [25, 125, 65],
+    amethyst: [110, 45, 160],
+    amber: [180, 110, 20],
+    obsidian: [35, 38, 48],
+  };
+  const colorPicker = document.getElementById('dice-color');
+  const finishPicker = document.getElementById('dice-finish');
+  const preview = document.getElementById('dice-preview');
+  let appearance = { color: 'ruby', finish: 'solid' };
+  try {
+    const saved = JSON.parse(localStorage.getItem(APPEARANCE_KEY));
+    if (saved && Object.hasOwn(colors, saved.color)) appearance.color = saved.color;
+    if (saved && ['solid', 'translucent'].includes(saved.finish)) appearance.finish = saved.finish;
+  } catch (error) {
+    console.warn('Could not load dice appearance preferences.', error);
+  }
+  colorPicker.value = appearance.color;
+  finishPicker.value = appearance.finish;
+
+  function updatePreview() {
+    preview.style.setProperty('--dice-rgb', colors[appearance.color].map((channel, i) => channel + [20, 8, 10][i]).join(','));
+    preview.style.setProperty('--dice-alpha', appearance.finish === 'translucent' ? '0.62' : '1');
+  }
+  function changeAppearance() {
+    appearance = { color: colorPicker.value, finish: finishPicker.value };
+    updatePreview();
+    try {
+      localStorage.setItem(APPEARANCE_KEY, JSON.stringify(appearance));
+    } catch (error) {
+      console.warn('Could not save dice appearance preferences.', error);
+    }
+  }
+  colorPicker.addEventListener('change', changeAppearance);
+  finishPicker.addEventListener('change', changeAppearance);
+  updatePreview();
 
   function resize() {
     const dpr = window.devicePixelRatio || 1;
@@ -101,13 +140,13 @@
     for (const { f, n, c } of visible) {
       const pts = f.idx.map((i) => proj(rotated[i]));
       const light = 0.35 + 0.65 * Math.max(0, dot(n, LIGHT));
-      const r = Math.round(150 * light + 20), g = Math.round(28 * light + 8), b = Math.round(32 * light + 10);
+      const [r, g, b] = colors[appearance.color].map((channel, i) => Math.round(channel * light + [20, 8, 10][i]));
       ctx.beginPath();
       ctx.moveTo(pts[0][0], pts[0][1]);
       ctx.lineTo(pts[1][0], pts[1][1]);
       ctx.lineTo(pts[2][0], pts[2][1]);
       ctx.closePath();
-      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fillStyle = `rgba(${r},${g},${b},${appearance.finish === 'translucent' ? 0.62 : 1})`;
       ctx.fill();
       ctx.lineWidth = 2;
       ctx.strokeStyle = '#d9a441';
